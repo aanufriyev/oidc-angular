@@ -10,7 +10,7 @@
         <script type="text/javascript" src="../oidc-angular.js"></script>
         <script type="text/javascript" src="../oidc-interceptor.js"></script>
         <script type="text/javascript" src="../oidc-token-service.js"></script>
-        <base href="/">
+        <base href="/oidc/sample/">
     </head>
     
     <body ng-app="app" ng-controller="ApplicationController as vm">
@@ -23,7 +23,8 @@
                 $authProvider.init({
                     basePath:               'http://demo-server.openidconnect.info',
                     authorizationEndpoint : 'authorize',
-                    clientId:               'e8c9c84c8ac2482eec929525841b8d62713ec7c1f1381423e91e6d8e43b18f53'
+                    clientId:               '97006aefc730d8b6f9c1c0550a98e6fd45f6a47592e38add8eac92371b51b245',
+                    redirectUri:            'http://localhost/oidc/sample/index.html' 
                 },$httpProvider)
             }]);
             

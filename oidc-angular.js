@@ -92,25 +92,7 @@
     })
 
     oidcmodule.config(['$httpProvider', '$routeProvider', '$locationProvider', function ($httpProvider, $routeProvider, $locationProvider) {
-        // Required html5
         $locationProvider.html5Mode(true).hashPrefix('!');
-        // Register callback route
-        // $routeProvider.
-        //     when('/auth/callback/:data', {
-        //         template: '',
-        //         controller: ['$auth', '$routeParams', function ($auth, $routeParams) {
-        //             console.debug('oidc-angular: handling login-callback');
-        //             $auth.handleSignInCallback($routeParams.data);
-        //         }]
-        //     }).
-        //     when('/auth/clear', {
-        //         template: '',
-        //         controller: ['$auth', function ($auth) {
-        //             console.debug('oidc-angular: handling logout-callback');
-        //             $auth.handleSignOutCallback();
-        //         }]
-        //     });
-        console.debug('oidc-angular: callback routes registered.')
     }]);
 
     oidcmodule.provider("$auth", ['$routeProvider', function ($routeProvider) {
@@ -124,8 +106,8 @@
             apiUrl: '/api/',
             responseType: 'id_token token',
             scope: "openid profile",
-            redirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname + '#/auth/callback/',
-            postLogoutRedirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname + '#/auth/clear',
+            redirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname+ '/',
+            postLogoutRedirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname,
             state: "",
             authorizationEndpoint: 'connect/authorize',
             revocationEndpoint: 'connect/revocation',
@@ -206,14 +188,11 @@
                 if (isCallback(hash)) {
                     console.debug("oidc-angular: Processing callback information", hash);
                     var requestInfo = getRequestInfo(hash);
-
-
-                    //if ($location.$$html5) {
-                    //    $window.location = $window.location.origin + $window.location.pathname;
-                    //} else {
-                    //    $window.location.hash = '';
-                    // }
-
+                    if ($location.$$html5) {
+                        $window.location = $window.location.origin + $window.location.pathname;
+                    } else {
+                        $window.location.hash = '';
+                    }
 
                     var id_token = requestInfo.parameters[CONSTANTS.ID_TOKEN];
                     var state = requestInfo.parameters[CONSTANTS.STATE];
