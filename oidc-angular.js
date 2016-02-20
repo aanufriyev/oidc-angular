@@ -150,7 +150,7 @@
                     response_type: config.responseType,
                     scope: config.scope,
                     authority: config.basePath,
-                    authorization_endpoint: config.basePath + '//' + config.authorizationEndpoint
+                    authorization_endpoint: config.basePath + '/' + config.authorizationEndpoint
                 }
                     );
             } else {
@@ -180,7 +180,7 @@
                     $localStorage[CONSTANTS.STORAGE.FAILED_RENEW] = '';
                     $localStorage[CONSTANTS.STORAGE.ERROR] = '';
                     $localStorage[CONSTANTS.STORAGE.ERROR_DESCRIPTION] = '';
-                    $window.location = request.url;
+                    window.location.replace(request.url);
                 }, function (err) {
                     console.error("cannot create authenticate request" + err);
                 });
@@ -208,11 +208,11 @@
                     var requestInfo = getRequestInfo(hash);
 
 
-                    if ($location.$$html5) {
-                        $window.location = $window.location.origin + $window.location.pathname;
-                    } else {
-                        $window.location.hash = '';
-                    }
+                    //if ($location.$$html5) {
+                    //    $window.location = $window.location.origin + $window.location.pathname;
+                    //} else {
+                    //    $window.location.hash = '';
+                    // }
 
 
                     var id_token = requestInfo.parameters[CONSTANTS.ID_TOKEN];
