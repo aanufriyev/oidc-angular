@@ -1,57 +1,48 @@
 <html>
     
     <head>
-    
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.4.9/angular.js"></script>
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.4.9/angular-route.js"></script>
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ngStorage/0.3.10/ngStorage.js"></script>
+        <script type="text/javascript" src="../bower_components/angular/angular.js"></script>
+        <script type="text/javascript" src="../bower_components/angular-route/angular-route.js"></script>
+        <script type="text/javascript" src="../bower_components/ngstorage/ngStorage.js"></script>
+        <script type="text/javascript" src="../bower_components/angular-base64/angular-base64.js"></script>
+        <script type="text/javascript" src="../bower_components/angular-ui-router/release/angular-ui-router.js"></script>
+        <script type="text/javascript" src="../bower_components/oidc-client/dist/oidc-client.js"></script>
         <script type="text/javascript" src="../oidc-angular.js"></script>
-        <script type="text/javascript" src="angular-base64.js"></script>
+        <script type="text/javascript" src="../oidc-interceptor.js"></script>
+        <script type="text/javascript" src="../oidc-token-service.js"></script>
+        <base href="/">
     </head>
     
     <body ng-app="app" ng-controller="ApplicationController as vm">
-        
         <button ng-click="vm.login()">Login</button>
         <button ng-click="vm.clear()">Clear Local Storage</button>
-        
-        <div ng-view> </div>
-        
+        <div ng-view></div>
         <script>
-            
             var appModule = angular.module('app', ['oidc-angular']);
-            
-            appModule.config(['$authProvider', function($authProvider) {
-                
-                $authProvider.configure({
+            appModule.config(['$authProvider','$httpProvider', function($authProvider,$httpProvider) {
+                $authProvider.init({
                     basePath:               'http://demo-server.openidconnect.info',
                     authorizationEndpoint : 'authorize',
-                    clientId:               '36e9e4b62933f528aa1edd9836cfe7776d7c401d1d52935157a0a5d133cbee0a'
-                })
+                    clientId:               'e8c9c84c8ac2482eec929525841b8d62713ec7c1f1381423e91e6d8e43b18f53'
+                },$httpProvider)
             }]);
             
             appModule.controller('ApplicationController', ['$auth', '$rootScope', '$localStorage', 
             function($auth, $rootScope, $localStorage) {
-                
                 var vm = this;
-                
                 console.log('[ControllerCtor]', '$auth.isAuthenticated', $auth.isAuthenticated());
-                
                 $rootScope.$on('oidcauth:loggedIn', function(e) {
                     console.log('[EventCallback]', 'Event', e.name, e);
                     console.log('[EventCallback]', '$auth.isAuthenticated', $auth.isAuthenticated());
                 });
-
-
                 vm.login = function() {
                     $auth.signIn();
                 }
-                
                 vm.clear = function() {
                     $localStorage.$reset();
                 }
             }]);
-            
-
-        </script>        
+        </script>
     </body>
+
 </html>

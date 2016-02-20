@@ -1,0 +1,29 @@
+{
+  "name": "oidc-client",
+  "version": "0.3.3",
+  "homepage": "https://github.com/IdentityModel/oidc-client",
+  "authors": [
+    "Brock Allen <brockallen@gmail.com>",
+    "Dominick Baier <dbaier@leastprivilege.com>"
+  ],
+  "description": "OpenID Connect (OIDC) client library",
+  "main": "dist/oidc-client.js",
+  "license": "Apache-2.0",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "_release": "0.3.3",
+  "_resolution": {
+    "type": "version",
+    "tag": "0.3.3",
+    "commit": "1113f07ede62ce022cdfff6b51ad0c40da3b6d2b"
+  },
+  "_source": "git://github.com/IdentityModel/oidc-client.git",
+  "_target": "^0.3.3",
+  "_originalSource": "oidc-client",
+  "_direct": true
+}

@@ -1,335 +1,335 @@
-﻿'use strict';
+﻿/// <reference path = "./bower_components/angular/angular.js"/>
+/// <reference path = "./bower_components/oidc-client/oidc-client.js"/>
+/// <reference path = "./bower_components/oidc-token-manager/oidc-token-manager.js"/>
 
-(function() {
+'use strict';
+(function () {
 
-var eventPrefix = 'oidcauth:';
-
-var unauthorizedEvent =          eventPrefix + 'unauthorized';
-var tokenExpiredEvent =          eventPrefix + 'tokenExpired';
-var tokenMissingEvent =          eventPrefix + 'tokenMissing';
-var tokenExpiresSoonEvent =      eventPrefix + 'tokenExpires';
-
-var loggedInEvent =              eventPrefix + 'loggedIn';
-var loggedOutEvent =             eventPrefix + 'loggedOut';
-
-var silentRefreshStartedEvent =  eventPrefix + 'silentRefreshStarted';
-var silentRefreshSuceededEvent = eventPrefix + 'silentRefreshSucceded';
-var silentRefreshFailedEvent =   eventPrefix + 'silentRefreshFailed';
-var silentRefreshTimeoutEvent =  eventPrefix + 'silentRefreshTimeout';
-
-// Module registrarion
-var oidcmodule = angular.module('oidc-angular', ['base64', 'ngStorage', 'ngRoute']);
-
-oidcmodule.config(['$httpProvider', '$routeProvider', function($httpProvider, $routeProvider) {
-    $httpProvider.interceptors.push('oidcHttpInterceptor');
-    
-    // Register callback route
-    $routeProvider.
-        when('/auth/callback/:data', {
-            template: '',
-            controller: ['$auth', '$routeParams', function ($auth, $routeParams) {
-                console.debug('oidc-angular: handling login-callback');
-                $auth.handleSignInCallback($routeParams.data);
-            }]
-        }).
-        when('/auth/clear', {
-            template: '',
-            controller: ['$auth', function ($auth) {
-                console.debug('oidc-angular: handling logout-callback');
-                $auth.handleSignOutCallback();
-            }]
-        });        
-        
-    console.debug('oidc-angular: callback routes registered.')
-}]);
-
-oidcmodule.factory('oidcHttpInterceptor', ['$rootScope', '$q', '$auth', 'tokenService', function($rootScope, $q, $auth, tokenService) {
-      return {
-
-        'request': function(request) {
-          
-         if (request.url.startsWith($auth.config.apiUrl)) {
-              
-              var appendBearer = false;
-              
-              if($auth.config.enableRequestChecks) {
-                  // Only append token when it's valid.
-                  if (tokenService.hasToken()) {
-                      if (tokenService.hasValidToken())
-                      {
-                          appendBearer = true;
-                      }
-                      else {
-                          $rootScope.$broadcast(tokenExpiredEvent, { request: request });
-                      }                  
-                  }
-                  else {
-                      $rootScope.$broadcast(tokenMissingEvent, { request: request });
-                  }
-              }
-              else {
-                  appendBearer = tokenService.hasValidToken();
-              }
-              
-              if (appendBearer) {
-                  var token = tokenService.getIdToken();
-                  request.headers['Authorization'] = 'Bearer ' + token;
-              }
-          }
-          
-          // do something on success
-          return request;
+    var REQUEST_TYPE = {
+        LOGIN: 'LOGIN',
+        RENEW_TOKEN: 'RENEW_TOKEN',
+        ID_TOKEN: 'ID_TOKEN',
+        UNKNOWN: 'UNKNOWN'
+    };
+    var CONSTANTS = {
+        ACCESS_TOKEN: 'access_token',
+        EXPIRES_IN: 'expires_in',
+        ID_TOKEN: 'id_token',
+        STATE: 'state',
+        ERROR_DESCRIPTION: 'error_description',
+        SESSION_STATE: 'session_state',
+        STORAGE: {
+            TOKEN_KEYS: 'adal.token.keys',
+            ACCESS_TOKEN_KEY: 'adal.access.token.key',
+            EXPIRATION_KEY: 'adal.expiration.key',
+            START_PAGE: 'adal.start.page',
+            START_PAGE_PARAMS: 'adal.start.page.params',
+            FAILED_RENEW: 'adal.failed.renew',
+            STATE_LOGIN: 'adal.state.login',
+            STATE_RENEW: 'adal.state.renew',
+            STATE_RENEW_RESOURCE: 'adal.state.renew.resource',
+            STATE_IDTOKEN: 'adal.state.idtoken',
+            NONCE_IDTOKEN: 'adal.nonce.idtoken',
+            SESSION_STATE: 'adal.session.state',
+            USERNAME: 'adal.username',
+            IDTOKEN: 'adal.idtoken',
+            ERROR: 'adal.error',
+            ERROR_DESCRIPTION: 'adal.error.description',
+            LOGIN_REQUEST: 'adal.login.request',
+            LOGIN_ERROR: 'adal.login.error'
         },
-    
-        'response': function(response) {
-            // Proactively check if the token will expire soon
-            $auth.validateExpirity();
-
-            return response;
+        RESOURCE_DELIMETER: '|',
+        ERR_MESSAGES: {
+            NO_TOKEN: 'User is not authorized'
         },
-          
-        'responseError': function(response) {
-            
-            if (response.status == 401) {
-              if (!tokenService.hasToken()) {
-                  // There was probably no token attached, because there is none
-                  $rootScope.$broadcast(tokenMissingEvent, { response: response });
-              }
-              else if (!tokenService.hasValidToken()) {
-                  // Seems the token is not valid anymore
-                  $rootScope.$broadcast(tokenExpiredEvent, { response: response });
-              }
-              else {
-                  // any other
-                  $rootScope.$broadcast(unauthorizedEvent, { response: response });
-              }                  
-            }
-            
-            return $q.reject(response);
-          }
-      };
+        LOGGING_LEVEL: {
+            ERROR: 0,
+            WARN: 1,
+            INFO: 2,
+            VERBOSE: 3
+        },
+        LEVEL_STRING_MAP: {
+            0: 'ERROR:',
+            1: 'WARNING:',
+            2: 'INFO:',
+            3: 'VERBOSE:'
+        }
+    };
+
+
+
+    var eventPrefix = 'oidcauth:';
+
+    var unauthorizedEvent = eventPrefix + 'unauthorized';
+    var tokenExpiredEvent = eventPrefix + 'tokenExpired';
+    var tokenMissingEvent = eventPrefix + 'tokenMissing';
+    var tokenExpiresSoonEvent = eventPrefix + 'tokenExpires';
+
+    var loggedInEvent = eventPrefix + 'loggedIn';
+    var loggedOutEvent = eventPrefix + 'loggedOut';
+
+    var silentRefreshStartedEvent = eventPrefix + 'silentRefreshStarted';
+    var silentRefreshSuceededEvent = eventPrefix + 'silentRefreshSucceded';
+    var silentRefreshFailedEvent = eventPrefix + 'silentRefreshFailed';
+    var silentRefreshTimeoutEvent = eventPrefix + 'silentRefreshTimeout';
+
+    // Module registrarion
+    var oidcmodule = angular.module('oidc-angular', ['base64', 'ngStorage', 'ngRoute']);
+
+    oidcmodule.constant("oidcEvents", {
+        unauthorizedEvent: eventPrefix + 'unauthorized',
+        tokenExpiredEvent: eventPrefix + 'tokenExpired',
+        tokenMissingEvent: eventPrefix + 'tokenMissing',
+        tokenExpiresSoonEvent: eventPrefix + 'tokenExpires',
+
+        loggedInEvent: eventPrefix + 'loggedIn',
+        loggedOutEvent: eventPrefix + 'loggedOut',
+
+        silentRefreshStartedEvent: eventPrefix + 'silentRefreshStarted',
+        silentRefreshSuceededEvent: eventPrefix + 'silentRefreshSucceded',
+        silentRefreshFailedEvent: eventPrefix + 'silentRefreshFailed',
+        silentRefreshTimeoutEvent: eventPrefix + 'silentRefreshTimeout'
+    })
+
+    oidcmodule.config(['$httpProvider', '$routeProvider', '$locationProvider', function ($httpProvider, $routeProvider, $locationProvider) {
+        // Required html5
+        $locationProvider.html5Mode(true).hashPrefix('!');
+        // Register callback route
+        // $routeProvider.
+        //     when('/auth/callback/:data', {
+        //         template: '',
+        //         controller: ['$auth', '$routeParams', function ($auth, $routeParams) {
+        //             console.debug('oidc-angular: handling login-callback');
+        //             $auth.handleSignInCallback($routeParams.data);
+        //         }]
+        //     }).
+        //     when('/auth/clear', {
+        //         template: '',
+        //         controller: ['$auth', function ($auth) {
+        //             console.debug('oidc-angular: handling logout-callback');
+        //             $auth.handleSignOutCallback();
+        //         }]
+        //     });
+        console.debug('oidc-angular: callback routes registered.')
     }]);
 
-oidcmodule.service('tokenService', ['$base64', '$localStorage', function ($base64, $localStorage) {
+    oidcmodule.provider("$auth", ['$routeProvider', function ($routeProvider) {
+        var _oidcClient = null;
+         
+        // Default configuration
+        var config = {
+            issuer: null,
+            basePath: null,
+            clientId: null,
+            apiUrl: '/api/',
+            responseType: 'id_token token',
+            scope: "openid profile",
+            redirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname + '#/auth/callback/',
+            postLogoutRedirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname + '#/auth/clear',
+            state: "",
+            authorizationEndpoint: 'connect/authorize',
+            revocationEndpoint: 'connect/revocation',
+            endSessionEndpoint: 'connect/endsession',
+            advanceRefresh: 300,
+            enableRequestChecks: false,
+        };
 
-    var service = this;
+        this.init = function (configOptions, httpProvider) {
+            if (configOptions) {
+                angular.extend(config, configOptions);
 
-    var padBase64 = function (base64data) {
-        while (base64data.length % 4 !== 0) {
-            base64data += "=";
-        }
-        return base64data;
-    };
-    
-    service.getPayloadFromRawToken = function(raw)
-    {
-        var tokenParts = raw.split(".");
-        return tokenParts[1];
-    };
+                if (httpProvider && httpProvider.interceptors) {
+                    httpProvider.interceptors.push('oidcHttpInterceptor');
+                }
 
-    service.deserializeClaims = function(raw) {
-        var claimsBase64 = padBase64(raw);
-        var claimsJson = $base64.decode(claimsBase64);
-
-        var claims = JSON.parse(claimsJson);
-
-        return claims;
-    };
-    
-    service.convertToClaims = function(id_token) {
-        var payload = service.getPayloadFromRawToken(id_token);
-        var claims = service.deserializeClaims(payload);
-
-        return claims;
-    };
-    
-    service.saveToken = function (id_token) {
-        $localStorage['idToken'] =  id_token;
-        
-        var idClaims = service.convertToClaims(id_token);
-        $localStorage['cached-claims'] =  idClaims;
-    };
-
-    service.hasToken = function() {
-        
-        var claims = service.allClaims();
-        
-        if (!(claims && claims.hasOwnProperty("iat") && claims.hasOwnProperty('exp'))) {
-            return false;
-        }
-        
-        return true;
-    };
-    
-    service.hasValidToken = function() {
-        if (!this.hasToken()) return false;
-        
-        var claims = service.allClaims();
-        
-        var now = Date.now();
-        var issuedAtMSec = claims.iat * 1000;
-        var expiresAtMSec = claims.exp * 1000;
-        var marginMSec = 1000;
-        
-        // Substract margin, because browser time could be a bit in the past
-        if (issuedAtMSec - marginMSec > now) {
-            console.log('oidc-connect: Token is not yet valid!')
-            return false
-        }
-        
-        if (expiresAtMSec < now) {
-            console.log('oidc-connect: Token has expired!')
-            return false;
-        }
-        
-        return true;
-    }
-
-    service.allClaims = function() {
-        var cachedClaims = $localStorage['cached-claims'];
-        
-        if (!cachedClaims) {
-            var id_token = service.getIdToken();
-            
-            if (id_token) {
-                var claims = service.convertToClaims(id_token);
-                
-                var idClaims = service.convertToClaims(id_token);
-                $localStorage['cached-claims'] =  idClaims;
-                
-                return claims;
+                // create instance with given config
+                _oidcClient = new OidcClient({
+                    client_id: config.clientId,
+                    redirect_uri: config.redirectUri,
+                    post_logout_redirect_uri: config.postLogoutRedirectUri,
+                    response_type: config.responseType,
+                    scope: config.scope,
+                    authority: config.basePath,
+                    authorization_endpoint: config.basePath + '//' + config.authorizationEndpoint
+                }
+                    );
+            } else {
+                throw new Error('You must set configOptions, when calling init');
             }
-        }
-        
-        return cachedClaims;
-    };
-    
-    service.getIdToken = function() {
-        return $localStorage['idToken'];
-    };
-    
-    service.clearTokens = function() {
-        delete $localStorage['cached-claims'];
-        delete $localStorage['idToken'];
-    }
-}]);
-
-oidcmodule.provider("$auth", ['$routeProvider', function ($routeProvider) {
-
-    // Default configuration
-    var config = {
-        issuer: null,
-        basePath: null,
-        clientId: null,
-        apiUrl: '/api/',
-        responseType: 'id_token',
-        scope: "openid profile",
-        redirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname + '#/auth/callback/',
-        logoutUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname + '#/auth/clear',
-        state: "",
-        authorizationEndpoint:  'connect/authorize',
-        revocationEndpoint:     'connect/revocation', 
-        endSessionEndpoint:     'connect/endsession',
-        advanceRefresh:         300,
-        enableRequestChecks:    false,
-      };
-
-    return {
-     
-        // Service configuration
-        configure: function (params) {
-            angular.extend(config, params);
-        },
-        
-        // Service itself
-        $get: ['$q', '$document', '$rootScope', '$localStorage', '$location', 'tokenService', function ($q, $document, $rootScope, $localStorage, $location, tokenService) {
-        
-            var init = function() {
-                
+            // loginresource is used to set authenticated status
+            //updateDataFromCache(_adal.config.loginResource);
+        };
+        this.$get = ['$q', '$document', '$rootScope', '$localStorage', '$location', '$window', 'tokenService', function ($q, $document, $rootScope, $localStorage, $location, $window, tokenService) {
+            var init = function () {
                 if ($localStorage['logoutActive']) {
                     delete $localStorage['logoutActive'];
-                    
-                    tokenService.clearTokens();                    
+                    tokenService.clearTokens();
                 }
-                
                 if ($localStorage['refreshRunning']) {
                     delete $localStorage['refreshRunning'];
                 }
             };
-            
-            var createLoginUrl = function (nonce, state) {
-            
-                var hasPathDelimiter = config.basePath.endsWith('/');
-                var appendChar = (hasPathDelimiter) ? '' : '/';
-                
-                var currentClaims = tokenService.allClaims();
-                if (currentClaims) {
-                    var idpClaimValue = currentClaims["idp"];
-                }
-
-                var baseUrl = config.basePath + appendChar;
-                var url = baseUrl + config.authorizationEndpoint
-                                  + "?response_type="
-                                  + encodeURIComponent(config.responseType)
-                                  + "&client_id=" 
-                                  + encodeURIComponent(config.clientId) 
-                                  + "&state=" 
-                                  + encodeURIComponent(state || config.state) 
-                                  + "&redirect_uri=" 
-                                  + encodeURIComponent(config.redirectUri) 
-                                  + "&scope=" 
-                                  + encodeURIComponent(config.scope)
-                                  + "&nonce=" 
-                                   + encodeURIComponent(nonce);
-
-                if (idpClaimValue) {
-                    url = url + "&acr_values="
-                              + encodeURIComponent("idp:" + idpClaimValue);
-                }
-
-                return url;
+            var login = function (localRedirect) {
+                _oidcClient.createTokenRequestAsync().then(function (request) {
+                    $localStorage['localRedirect'] = localRedirect;
+                    console.debug('Expected state: ' + request.request_state.state + ' startPage:' + $window.location);
+                    $localStorage[CONSTANTS.STORAGE.LOGIN_REQUEST] = $window.location;
+                    $localStorage[CONSTANTS.STORAGE.LOGIN_ERROR] = '';
+                    $localStorage[CONSTANTS.STORAGE.STATE_LOGIN] = request.request_state.state;
+                    $localStorage[CONSTANTS.STORAGE.NONCE_IDTOKEN] = request.request_state.nonce;
+                    $localStorage[CONSTANTS.STORAGE.FAILED_RENEW] = '';
+                    $localStorage[CONSTANTS.STORAGE.ERROR] = '';
+                    $localStorage[CONSTANTS.STORAGE.ERROR_DESCRIPTION] = '';
+                    $window.location = request.url;
+                }, function (err) {
+                    console.error("cannot create authenticate request" + err);
+                });
             };
 
-            var createLogoutUrl = function(state) {
-                
+            function _saveItem(key, value) {
+                $localStorage[key] = value;
+            }
+            function _getItem(key) {
+                return $localStorage[key]
+            }
+
+            var logout = function () {
                 var idToken = tokenService.getIdToken();
-                
-                var hasPathDelimiter = config.basePath.endsWith('/');
-                var appendChar = (hasPathDelimiter) ? '' : '/';
-                
-                var baseUrl = config.basePath + appendChar;
-                var url = baseUrl + config.endSessionEndpoint
-                                  + "?id_token_hint="
-                                  + encodeURIComponent(idToken)
-                                  + "&post_logout_redirect_uri=" 
-                                  + encodeURIComponent(config.logoutUri) 
-                                  + "&state=" 
-                                  + encodeURIComponent(state || config.state) 
-                                  + "&r=" + Math.random();
-                return url;
-            }    
-            
-            var startImplicitFlow = function (localRedirect) {
-            
-                $localStorage['localRedirect'] = localRedirect;
-                
-                var url = createLoginUrl("dummynonce");
-                window.location.replace(url);
-            };
-    
-            var startLogout = function () {
-                var url = createLogoutUrl();
-                $localStorage['logoutActive'] = true;
-
-                window.location.replace(url);
+                _oidcClient.createLogoutRequestAsync(idToken).then(function (url) {
+                    $localStorage['logoutActive'] = true;
+                    window.location = url;
+                });
             };
 
-            var handleImplicitFlowCallback = function(id_token) {
-                
+            var locationChangeHandler = function () {
+                var hash = $window.location.hash;
+                if (isCallback(hash)) {
+                    console.debug("oidc-angular: Processing callback information", hash);
+                    var requestInfo = getRequestInfo(hash);
+
+
+                    if ($location.$$html5) {
+                        $window.location = $window.location.origin + $window.location.pathname;
+                    } else {
+                        $window.location.hash = '';
+                    }
+
+
+                    var id_token = requestInfo.parameters[CONSTANTS.ID_TOKEN];
+                    var state = requestInfo.parameters[CONSTANTS.STATE];
+                    if (id_token) {
+                        if (state === 'refresh') {
+                            handleSilentRefreshCallback(id_token);
+                        }
+                        else {
+                            handleImplicitFlowCallback(id_token);
+                        }
+                    }
+                }
+            }
+
+            function isCallback(hash) {
+                hash = _getHash(hash);
+                var parameters = _deserialize(hash);
+                return (
+                    parameters.hasOwnProperty(CONSTANTS.ERROR_DESCRIPTION) ||
+                    parameters.hasOwnProperty(CONSTANTS.ACCESS_TOKEN) ||
+                    parameters.hasOwnProperty(CONSTANTS.ID_TOKEN)
+                    );
+            };
+
+
+            function _getHash(hash) {
+                if (hash.indexOf('#/') > -1) {
+                    hash = hash.substring(hash.indexOf('#/') + 2);
+                } else if (hash.indexOf('#') > -1) {
+                    hash = hash.substring(1);
+                }
+
+                return hash;
+            };
+
+            function _deserialize(query) {
+                var match,
+                    pl = /\+/g,  // Regex for replacing addition symbol with a space
+                    search = /([^&=]+)=?([^&]*)/g,
+                    decode = function (s) {
+                        return decodeURIComponent(s.replace(pl, ' '));
+                    },
+                    obj = {};
+                match = search.exec(query);
+                while (match) {
+                    obj[decode(match[1])] = decode(match[2]);
+                    match = search.exec(query);
+                }
+
+                return obj;
+            };
+
+            function getRequestInfo(hash) {
+                hash = _getHash(hash);
+                var parameters = _deserialize(hash);
+                var requestInfo = {
+                    valid: false,
+                    parameters: {},
+                    stateMatch: false,
+                    stateResponse: '',
+                    requestType: REQUEST_TYPE.UNKNOWN
+                };
+                if (parameters) {
+                    requestInfo.parameters = parameters;
+                    if (parameters.hasOwnProperty(CONSTANTS.ERROR_DESCRIPTION) ||
+                        parameters.hasOwnProperty(CONSTANTS.ACCESS_TOKEN) ||
+                        parameters.hasOwnProperty(CONSTANTS.ID_TOKEN)) {
+
+                        requestInfo.valid = true;
+            
+                        // which call
+                        var stateResponse = '';
+                        if (parameters.hasOwnProperty('state')) {
+                            console.debug('State: ' + parameters.state);
+                            stateResponse = parameters.state;
+                        } else {
+                            console.debug('No state returned');
+                        }
+
+                        requestInfo.stateResponse = stateResponse;
+            
+                        // async calls can fire iframe and login request at the same time if developer does not use the API as expected
+                        // incoming callback needs to be looked up to find the request type
+                        switch (stateResponse) {
+                            case _getItem(CONSTANTS.STORAGE.STATE_LOGIN):
+                                requestInfo.requestType = REQUEST_TYPE.LOGIN;
+                                requestInfo.stateMatch = true;
+                                break;
+
+                            case _getItem(CONSTANTS.STORAGE.STATE_IDTOKEN):
+                                requestInfo.requestType = REQUEST_TYPE.ID_TOKEN;
+                                _saveItem(CONSTANTS.STORAGE.STATE_IDTOKEN, '');
+                                requestInfo.stateMatch = true;
+                                break;
+                        }
+            
+                        // external api requests may have many renewtoken requests for different resource
+                        if (!requestInfo.stateMatch && window.parent) { // && window.parent.AuthenticationContext()
+                            var statesInParentContext = window.parent.AuthenticationContext()._renewStates;
+                            for (var i = 0; i < statesInParentContext.length; i++) {
+                                if (statesInParentContext[i] === requestInfo.stateResponse) {
+                                    requestInfo.requestType = REQUEST_TYPE.RENEW_TOKEN;
+                                    requestInfo.stateMatch = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return requestInfo;
+            };
+
+            var handleImplicitFlowCallback = function (id_token) {
                 tokenService.saveToken(id_token);
-        
                 var localRedirect = $localStorage['localRedirect'];
-                
                 if (localRedirect) {
                     $location.path(localRedirect);
                     delete $localStorage['localRedirect'];
@@ -337,24 +337,16 @@ oidcmodule.provider("$auth", ['$routeProvider', function ($routeProvider) {
                 else {
                     $location.path('/');
                 }
-                
-                $rootScope.$broadcast(loggedInEvent);      
-                return true;      
+                $rootScope.$broadcast(loggedInEvent);
+                return true;
             };
 
-            var handleSilentRefreshCallback = function(newIdToken) {
-                
+            var handleSilentRefreshCallback = function (newIdToken) {
                 delete $localStorage['refreshRunning'];
-                
-                var currentIdToken = tokenService.getIdToken();
                 var currentClaims = tokenService.allClaims();
-                
                 var newClaims = tokenService.convertToClaims(newIdToken)
-                
                 if (currentClaims.exp && newClaims.exp && newClaims.exp > currentClaims.exp) {
-                    
                     tokenService.saveToken(newIdToken);
-        
                     $rootScope.$broadcast(silentRefreshSuceededEvent);
                 }
                 else {
@@ -362,91 +354,48 @@ oidcmodule.provider("$auth", ['$routeProvider', function ($routeProvider) {
                 }
             };
 
-            var trySilentRefresh = function() {
-                
+            var trySilentRefresh = function () {
                 if ($localStorage['refreshRunning']) {
-                    return;            
+                    return;
                 }
-                
                 $localStorage['refreshRunning'] = true;
-                
                 $rootScope.$broadcast(silentRefreshStartedEvent);
-                
                 var url = createLoginUrl('dummynonce', 'refresh');
-                
                 var html = "<iframe src='" + url + "' height='400' width='100%' id='oauthFrame' style='display:none;visibility:hidden;'></iframe>";
                 var elem = angular.element(html);
-                
                 $document.find("body").append(elem);
-                
-                setTimeout(function() {
+                setTimeout(function () {
                     if ($localStorage['refreshRunning']) {
                         $rootScope.$broadcast(silentRefreshTimeoutEvent);
                         delete $localStorage['refreshRunning']
                     }
-                    
+
                     $document.find("#oauthFrame").remove();
                 }, 5000);
             };
 
-
-            var handleSignInCallback = function(data) {
-                
-                if (!data && window.location.hash.indexOf("#") === 0) {
-                    data = window.location.hash.substr(16)
-                }
-                                
-                var fragments = {}
-                if (data) {
-                    fragments = parseQueryString(data);
-                }
-                else {
-                    throw Error("Unable to process callback. No data given!");
-                }
-            
-                console.debug("oidc-angular: Processing callback information", data);
-            
-                var id_token     = fragments['id_token'];
-                var state        = fragments['state'];
-                
-                if (id_token) {
-                    if (state === 'refresh') {
-                        handleSilentRefreshCallback(id_token);
-                    }
-                    else {
-                        handleImplicitFlowCallback(id_token);
-                    }               
-                }
-            };
-
-            var handleSignOutCallback = function() {
-
+            var handleSignOutCallback = function () {
                 delete $localStorage['logoutActive'];
-                
                 tokenService.clearTokens();
                 $location.path('/');
-
-                $rootScope.$broadcast(loggedOutEvent);            
+                $rootScope.$broadcast(loggedOutEvent);
             };
-            
-            var tokenIsValidAt = function(date) {
+
+            var tokenIsValidAt = function (date) {
                 var claims = tokenService.allClaims();
-                
                 var expiresAtMSec = claims.exp * 1000;
-                                
                 if (date <= expiresAtMSec) {
                     return true;
                 }
-                
                 return false;
             }
-            
-            var validateExpirity = function() {
+
+            var validateExpirity = function () {
                 if (!tokenService.hasToken()) return;
                 if (!tokenService.hasValidToken()) return;
-                
+
                 var now = Date.now();
-            
+
                 if (!tokenIsValidAt(now + config.advanceRefresh)) {
                     $rootScope.$broadcast(tokenExpiresSoonEvent);
                     trySilentRefresh();
@@ -455,92 +404,84 @@ oidcmodule.provider("$auth", ['$routeProvider', function ($routeProvider) {
 
             init();
 
+            $rootScope.$on('$locationChangeStart', locationChangeHandler);
+
             return {
                 config: config,
-            
-                handleSignInCallback : handleSignInCallback,
-            
-                handleSignOutCallback : handleSignOutCallback,
-            
+                handleSignOutCallback: handleSignOutCallback,
                 validateExpirity: validateExpirity,
-            
-                isAuthenticated : function() { 
-                    return tokenService.hasValidToken(); 
+                isAuthenticated: function () {
+                    return tokenService.hasValidToken();
                 },
-            
-                isAuthenticatedIn : function(milliseconds) { 
-                    return tokenService.hasValidToken() && tokenIsValidAt(new Date().getTime() + milliseconds); 
+                isAuthenticatedIn: function (milliseconds) {
+                    return tokenService.hasValidToken() && tokenIsValidAt(new Date().getTime() + milliseconds);
                 },
-            
-                signIn : function(localRedirect) { 
-                    startImplicitFlow(localRedirect);
+                signIn: function (localRedirect) {
+                    login(localRedirect);
                 },
-            
-                signOut : function() {
-                    startLogout();
+                signOut: function () {
+                    logout();
                 },
-                
-                silentRefresh : function() {
+                silentRefresh: function () {
                     trySilentRefresh();
                 }
-              
             };
-        }]
-    };
-}]);
+        }];
+    }]);
 
-/* Helpers & Polyfills */
-function parseQueryString(queryString) {
-    var data = {}, pairs, pair, separatorIndex, escapedKey, escapedValue, key, value;
 
-    if (queryString === null) {
+    /* Helpers & Polyfills */
+    function parseQueryString(queryString) {
+        var data = {}, pairs, pair, separatorIndex, escapedKey, escapedValue, key, value;
+
+        if (queryString === null) {
+            return data;
+        }
+
+        pairs = queryString.split("&");
+
+        for (var i = 0; i < pairs.length; i++) {
+            pair = pairs[i];
+            separatorIndex = pair.indexOf("=");
+
+            if (separatorIndex === -1) {
+                escapedKey = pair;
+                escapedValue = null;
+            } else {
+                escapedKey = pair.substr(0, separatorIndex);
+                escapedValue = pair.substr(separatorIndex + 1);
+            }
+
+            key = decodeURIComponent(escapedKey);
+            value = decodeURIComponent(escapedValue);
+
+            if (key.substr(0, 1) === '/')
+                key = key.substr(1);
+
+            data[key] = value;
+        }
+
         return data;
-    }
-
-    pairs = queryString.split("&");
-
-    for (var i = 0; i < pairs.length; i++) {
-        pair = pairs[i];
-        separatorIndex = pair.indexOf("=");
-
-        if (separatorIndex === -1) {
-            escapedKey = pair;
-            escapedValue = null;
-        } else {
-            escapedKey = pair.substr(0, separatorIndex);
-            escapedValue = pair.substr(separatorIndex + 1);
-        }
-
-        key = decodeURIComponent(escapedKey);
-        value = decodeURIComponent(escapedValue);
-
-        if (key.substr(0, 1) === '/')
-            key = key.substr(1);
-
-        data[key] = value;
-    }
-
-    return data;
- };
- 
-     
-if (!String.prototype.endsWith) {
-    String.prototype.endsWith = function (searchString, position) {
-        var subjectString = this.toString();
-        if (position === undefined || position > subjectString.length) {
-            position = subjectString.length;
-        }
-        position -= searchString.length;
-        var lastIndex = subjectString.indexOf(searchString, position);
-        return lastIndex !== -1 && lastIndex === position;
     };
-}
 
-if (!String.prototype.startsWith) {
-  String.prototype.startsWith = function(searchString, position) {
-    position = position || 0;
-    return this.lastIndexOf(searchString, position) === position;
-  };
-}
+
+    if (!String.prototype.endsWith) {
+        String.prototype.endsWith = function (searchString, position) {
+            var subjectString = this.toString();
+            if (position === undefined || position > subjectString.length) {
+                position = subjectString.length;
+            }
+            position -= searchString.length;
+            var lastIndex = subjectString.indexOf(searchString, position);
+            return lastIndex !== -1 && lastIndex === position;
+        };
+    }
+
+    if (!String.prototype.startsWith) {
+        String.prototype.startsWith = function (searchString, position) {
+            position = position || 0;
+            return this.lastIndexOf(searchString, position) === position;
+        };
+    }
 
 })();
