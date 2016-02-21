@@ -106,7 +106,7 @@
             apiUrl: '/api/',
             responseType: 'id_token token',
             scope: "openid profile",
-            redirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname+ '/',
+            redirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname + '/',
             postLogoutRedirectUri: (window.location.origin || window.location.protocol + '//' + window.location.host) + window.location.pathname,
             state: "",
             authorizationEndpoint: 'connect/authorize',
@@ -183,19 +183,20 @@
                 });
             };
 
-            var locationChangeHandler = function () {
-                var hash = $window.location.hash;
+            var locationChangeHandler = function (event, newUrl, oldUrl) {
+                var hash = $location.hash();
+                
+                if (newUrl !== oldUrl) { // We process only frist location changed event on page load
+                    return;
+                }
                 if (isCallback(hash)) {
                     console.debug("oidc-angular: Processing callback information", hash);
                     var requestInfo = getRequestInfo(hash);
-                    if ($location.$$html5) {
-                        $window.location = $window.location.origin + $window.location.pathname;
-                    } else {
-                        $window.location.hash = '';
-                    }
+                    $location.hash(''); // Clean provider hash parameters
 
                     var id_token = requestInfo.parameters[CONSTANTS.ID_TOKEN];
                     var state = requestInfo.parameters[CONSTANTS.STATE];
+                    
                     if (id_token) {
                         if (state === 'refresh') {
                             handleSilentRefreshCallback(id_token);
