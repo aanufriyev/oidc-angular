@@ -28,13 +28,13 @@
                 },$httpProvider)
             }]);
             
-            appModule.controller('ApplicationController', ['$auth', '$rootScope', '$localStorage', 
-            function($auth, $rootScope, $localStorage) {
+            appModule.controller('ApplicationController', ['$auth', '$rootScope', '$localStorage', 'tokenService', function($auth, $rootScope, $localStorage, tokenService) {
                 var vm = this;
                 console.log('[ControllerCtor]', '$auth.isAuthenticated', $auth.isAuthenticated());
                 $rootScope.$on('oidcauth:loggedIn', function(e) {
                     console.log('[EventCallback]', 'Event', e.name, e);
                     console.log('[EventCallback]', '$auth.isAuthenticated', $auth.isAuthenticated());
+                    console.log(tokenService.allClaims());
                 });
                 vm.login = function() {
                     $auth.signIn();
