@@ -1,34 +1,45 @@
 <html>
+
+<head>
+    <script type="text/javascript" src="../bower_components/angular/angular.js"></script>
+    <script type="text/javascript" src="../bower_components/angular-route/angular-route.js"></script>
+    <script type="text/javascript" src="../bower_components/ngstorage/ngStorage.js"></script>
+    <script type="text/javascript" src="../bower_components/angular-base64/angular-base64.js"></script>
+    <script type="text/javascript" src="../bower_components/angular-ui-router/release/angular-ui-router.js"></script>
+    <script type="text/javascript" src="../bower_components/oidc-client/dist/oidc-client.js"></script>
+    <script type="text/javascript" src="../oidc-angular.js"></script>
+    <script type="text/javascript" src="../oidc-interceptor.js"></script>
+    <script type="text/javascript" src="../oidc-token-service.js"></script>
+    <base href="/oidc/sample/">
+</head>
+
+<body ng-app="app" ng-controller="ApplicationController as vm">
+    <button ng-click="vm.login()">Login</button>
     
-    <head>
-        <script type="text/javascript" src="../bower_components/angular/angular.js"></script>
-        <script type="text/javascript" src="../bower_components/angular-route/angular-route.js"></script>
-        <script type="text/javascript" src="../bower_components/ngstorage/ngStorage.js"></script>
-        <script type="text/javascript" src="../bower_components/angular-base64/angular-base64.js"></script>
-        <script type="text/javascript" src="../bower_components/angular-ui-router/release/angular-ui-router.js"></script>
-        <script type="text/javascript" src="../bower_components/oidc-client/dist/oidc-client.js"></script>
-        <script type="text/javascript" src="../oidc-angular.js"></script>
-        <script type="text/javascript" src="../oidc-interceptor.js"></script>
-        <script type="text/javascript" src="../oidc-token-service.js"></script>
-        <base href="/oidc/sample/">
-    </head>
+    <button ng-click="vm.clear()">Clear Local Storage</button>
     
-    <body ng-app="app" ng-controller="ApplicationController as vm">
-        <button ng-click="vm.login()">Login</button>
-        <button ng-click="vm.clear()">Clear Local Storage</button>
-        <div ng-view></div>
-        <script>
-            var appModule = angular.module('app', ['oidc-angular']);
-            appModule.config(['$authProvider','$httpProvider', function($authProvider,$httpProvider) {
+    <button ng-click="vm.state1()">State1</button>
+    <div ui-view></div>
+    <script>
+        var appModule = angular.module('app', ['oidc-angular','ui.router']);
+            appModule.config(['$authProvider','$httpProvider', '$stateProvider', function($authProvider, $httpProvider, $stateProvider) {
                 $authProvider.init({
                     basePath:               'http://demo-server.openidconnect.info',
                     authorizationEndpoint : 'authorize',
                     clientId:               '97006aefc730d8b6f9c1c0550a98e6fd45f6a47592e38add8eac92371b51b245',
                     redirectUri:            'http://localhost/oidc/sample/index.html' 
-                },$httpProvider)
+                },$httpProvider);
+                $stateProvider
+                    .state('state1', {
+                        url: "/state1",
+                        templateUrl: "index.html"
+                    })
+                    .state('state2', {
+                        url: "/state2",
+                        templateUrl: "index.html"
+                    });
             }]);
-            
-            appModule.controller('ApplicationController', ['$auth', '$rootScope', '$localStorage', 'tokenService', function($auth, $rootScope, $localStorage, tokenService) {
+            appModule.controller('ApplicationController', ['$auth', '$rootScope', '$localStorage', '$location', 'tokenService', function($auth, $rootScope, $localStorage, $location, tokenService) {
                 var vm = this;
                 console.log('[ControllerCtor]', '$auth.isAuthenticated', $auth.isAuthenticated());
                 $rootScope.$on('oidcauth:loggedIn', function(e) {
@@ -39,11 +50,14 @@
                 vm.login = function() {
                     $auth.signIn();
                 }
+                vm.state1 = function() {
+                    $location.path("/state1");
+                }
                 vm.clear = function() {
                     $localStorage.$reset();
                 }
             }]);
-        </script>
-    </body>
+    </script>
+</body>
 
 </html>

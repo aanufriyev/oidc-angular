@@ -141,7 +141,7 @@
             // loginresource is used to set authenticated status
             //updateDataFromCache(_adal.config.loginResource);
         };
-        this.$get = ['$q', '$document', '$rootScope', '$localStorage', '$location', '$window', 'tokenService', function ($q, $document, $rootScope, $localStorage, $location, $window, tokenService) {
+        this.$get = ['$q', '$document', '$rootScope', '$localStorage', '$location', '$window', '$timeout', 'tokenService', function ($q, $document, $rootScope, $localStorage, $location, $window, $timeout, tokenService) {
             var init = function () {
                 if ($localStorage['logoutActive']) {
                     delete $localStorage['logoutActive'];
@@ -153,7 +153,7 @@
             };
             var login = function (localRedirect) {
                 _oidcClient.createTokenRequestAsync().then(function (request) {
-                    $localStorage['localRedirect'] = localRedirect;
+                    $localStorage['localRedirect'] = $location.path();
                     console.debug('Expected state: ' + request.request_state.state + ' startPage:' + $window.location);
                     $localStorage[CONSTANTS.STORAGE.LOGIN_REQUEST] = $window.location;
                     $localStorage[CONSTANTS.STORAGE.LOGIN_ERROR] = '';
@@ -162,7 +162,10 @@
                     $localStorage[CONSTANTS.STORAGE.FAILED_RENEW] = '';
                     $localStorage[CONSTANTS.STORAGE.ERROR] = '';
                     $localStorage[CONSTANTS.STORAGE.ERROR_DESCRIPTION] = '';
-                    window.location.replace(request.url);
+                    $timeout(function () {
+                        window.location.replace(request.url);
+                    }, 1);
+
                 }, function (err) {
                     console.error("cannot create authenticate request" + err);
                 });
@@ -185,7 +188,7 @@
 
             var locationChangeHandler = function (event, newUrl, oldUrl) {
                 var hash = $location.hash();
-                
+
                 if (newUrl !== oldUrl) { // We process only frist location changed event on page load
                     return;
                 }
@@ -196,7 +199,7 @@
 
                     var id_token = requestInfo.parameters[CONSTANTS.ID_TOKEN];
                     var state = requestInfo.parameters[CONSTANTS.STATE];
-                    
+
                     if (id_token) {
                         if (state === 'refresh') {
                             handleSilentRefreshCallback(id_token);
